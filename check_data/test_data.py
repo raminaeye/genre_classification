@@ -1,8 +1,15 @@
+"""Data-quality tests run by the check_data step (pytest).
+
+Each test receives the ``data`` fixture from conftest.py: a tuple of
+(reference dataframe, sample dataframe). The reference is the previously
+validated dataset; the sample is the newly preprocessed data under test.
+"""
 import scipy.stats
 import pandas as pd
 
 
 def test_column_presence_and_type(data):
+    """All expected columns exist in the sample with the right dtypes."""
 
     # Disregard the reference dataset
     _, data = data
@@ -33,6 +40,7 @@ def test_column_presence_and_type(data):
 
 
 def test_class_names(data):
+    """Every genre label in the sample is one of the known classes."""
 
     # Disregard the reference dataset
     _, data = data
@@ -60,6 +68,7 @@ def test_class_names(data):
 
 
 def test_column_ranges(data):
+    """Numeric columns stay within their plausible ranges (NaNs ignored)."""
 
     # Disregard the reference dataset
     _, data = data
@@ -88,6 +97,13 @@ def test_column_ranges(data):
 
 
 def test_kolmogorov_smirnov(data, ks_alpha):
+    """Reference and sample distributions match (two-sample KS test).
+
+    Runs a two-sample Kolmogorov-Smirnov test per numeric column with a
+    Bonferroni correction for multiple testing, and fails if any column's
+    p-value falls below the corrected threshold (meaning the sample has
+    drifted from the reference).
+    """
 
     sample1, sample2 = data
 

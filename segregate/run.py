@@ -1,4 +1,11 @@
 #!/usr/bin/env python
+"""Split the preprocessed genre dataset into train and test artifacts.
+
+Downloads the preprocessed CSV from W&B, splits it into train/test with a
+seeded ``train_test_split`` (stratified on the target column when requested),
+and uploads each split as its own W&B artifact via a temporary directory so
+no local files are left behind.
+"""
 import argparse
 import logging
 import os
@@ -14,6 +21,14 @@ logger = logging.getLogger()
 
 
 def go(args):
+    """Split the input artifact into train/test CSVs and upload both to W&B.
+
+    Args:
+        args: Parsed CLI arguments with ``input_artifact``, ``artifact_root``
+            (each split is logged as ``{root}_{split}.csv``), ``artifact_type``,
+            ``test_size``, ``random_state``, and ``stratify`` (a column name,
+            or the string "null" for no stratification).
+    """
 
     run = wandb.init(job_type="split_data")
 
@@ -23,8 +38,9 @@ def go(args):
 
     df = pd.read_csv(artifact_path, low_memory=False)
 
-    # Split first in model_dev/test, then we further divide model_dev in train and validation
-    logger.info("Splitting data into train, val and test")
+    # One split here into train/test; the random_forest step later carves a
+    # validation split out of the train set
+    logger.info("Splitting data into train and test")
     splits = {}
 
     splits["train"], splits["test"] = train_test_split(

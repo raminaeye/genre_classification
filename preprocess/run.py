@@ -1,4 +1,12 @@
 #!/usr/bin/env python
+"""Preprocess the raw genre dataset for modeling.
+
+Downloads the raw parquet artifact from W&B, drops duplicate rows, and
+builds a ``text_feature`` column by concatenating the track ``title`` and
+``song_name`` (missing values treated as empty strings) so the training
+pipeline can use it as a TF-IDF text input. The result is uploaded as a new
+W&B artifact.
+"""
 import argparse
 import logging
 import os
@@ -12,6 +20,13 @@ logger = logging.getLogger()
 
 
 def go(args):
+    """Run the preprocessing step: dedupe, build the text feature, upload.
+
+    Args:
+        args: Parsed CLI arguments with ``input_artifact`` (fully-qualified
+            W&B artifact name) and the name/type/description for the produced
+            artifact.
+    """
 
     run = wandb.init(job_type="process_data")
 
@@ -27,9 +42,12 @@ def go(args):
 
     # A minimal feature engineering step: a new feature
     logger.info("Feature engineering")
-    df['title'].fillna(value='', inplace=True)
-    df['song_name'].fillna(value='', inplace=True)
-    df['text_feature'] = df['title'] + ' ' + df['song_name']
+    # Fill first, then concatenate: assigning the result back keeps this
+    # correct under pandas copy-on-write (chained inplace ops silently no-op
+    # in pandas 3).
+    df["title"] = df["title"].fillna("")
+    df["song_name"] = df["song_name"].fillna("")
+    df["text_feature"] = df["title"] + " " + df["song_name"]
 
     filename = "processed_data.csv"
     df.to_csv(filename)

@@ -1,3 +1,9 @@
+"""Shared pytest fixtures for the check_data step.
+
+Downloads the reference and sample datasets as W&B artifacts once per
+session and exposes them, plus the KS-test significance threshold, to the
+tests in test_data.py.
+"""
 import pytest
 import pandas as pd
 import wandb
@@ -14,6 +20,7 @@ def pytest_addoption(parser):
 
 @pytest.fixture(scope="session")
 def data(request):
+    """(reference_df, sample_df) downloaded from W&B, once per session."""
 
     reference_artifact = request.config.option.reference_artifact
 
@@ -36,6 +43,7 @@ def data(request):
 
 @pytest.fixture(scope='session')
 def ks_alpha(request):
+    """KS-test significance threshold from the --ks_alpha CLI option."""
     ks_alpha = request.config.option.ks_alpha
 
     if ks_alpha is None:

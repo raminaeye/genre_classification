@@ -1,3 +1,13 @@
+"""Orchestrate the genre-classification pipeline with Hydra + MLflow.
+
+This is the entry point for the whole workflow. It reads ``config.yaml``
+with Hydra, figures out which steps to run (download, preprocess,
+check_data, segregate, random_forest, evaluate), and launches each step as
+its own MLflow project, passing artifacts between steps through W&B.
+
+Run the full pipeline with ``mlflow run .`` or pick steps with e.g.
+``mlflow run . -P hydra_options="main.execute_steps=download,preprocess"``.
+"""
 import mlflow
 import os
 import hydra
@@ -7,6 +17,13 @@ from omegaconf import DictConfig, OmegaConf
 # This automatically reads in the configuration
 @hydra.main(config_name='config')
 def go(config: DictConfig):
+    """Launch the selected pipeline steps as MLflow runs.
+
+    Args:
+        config: The Hydra config (see ``config.yaml``). ``main.execute_steps``
+            is either a list of step names or a comma-separated string when
+            passed on the command line.
+    """
 
     # Setup the wandb experiment. All runs will be grouped under this name
     os.environ["WANDB_PROJECT"] = config["main"]["project_name"]

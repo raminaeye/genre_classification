@@ -1,0 +1,18 @@
+# Core pipeline
+mlflow>=1.14.1
+hydra-core>=1.0.6
+omegaconf>=2.0.5
+wandb>=0.10.21
+
+# Data and modeling
+pandas>=1.2.4
+numpy>=1.20.2
+scikit-learn>=1.0
+scipy>=1.6.3
+matplotlib>=3.3.4
+pyyaml>=5.4.1
+pyarrow>=3.0.0
+
+# Download and testing
+requests>=2.24.0
+pytest>=6.2.3

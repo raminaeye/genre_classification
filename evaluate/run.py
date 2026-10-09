@@ -1,4 +1,11 @@
 #!/usr/bin/env python
+"""Score the exported genre model on the held-out test split.
+
+Downloads the exported MLflow model and the test artifact from W&B,
+reconstructs the feature columns the training pipeline consumed, computes
+macro one-vs-rest ROC AUC on the test set, and logs a normalized confusion
+matrix.
+"""
 import argparse
 import itertools
 import logging
@@ -6,13 +13,19 @@ import pandas as pd
 import wandb
 import mlflow.sklearn
 import matplotlib.pyplot as plt
-from sklearn.metrics import roc_auc_score, plot_confusion_matrix
+from sklearn.metrics import roc_auc_score, ConfusionMatrixDisplay
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)-15s %(message)s")
 logger = logging.getLogger()
 
 
 def go(args):
+    """Evaluate the exported model on the test set and log the results.
+
+    Args:
+        args: Parsed CLI arguments with ``model_export`` and ``test_data``
+            (fully-qualified W&B artifact names).
+    """
 
     run = wandb.init(job_type="test")
 
@@ -40,7 +53,7 @@ def go(args):
 
     logger.info("Computing confusion matrix")
     fig_cm, sub_cm = plt.subplots(figsize=(10, 10))
-    plot_confusion_matrix(
+    ConfusionMatrixDisplay.from_estimator(
         pipe,
         X_test[used_columns],
         y_test,

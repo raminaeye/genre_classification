@@ -1,4 +1,10 @@
 #!/usr/bin/env python
+"""Download the raw genre dataset and log it as a W&B artifact.
+
+Streams the parquet file from the given URL into a temporary file (so
+downloads larger than memory still work and nothing is left behind), then
+uploads it to W&B under the requested artifact name, type, and description.
+"""
 import argparse
 import logging
 import pathlib
@@ -12,6 +18,12 @@ logger = logging.getLogger()
 
 
 def go(args):
+    """Download the file at ``args.file_url`` and log it as a W&B artifact.
+
+    Args:
+        args: Parsed CLI arguments with ``file_url`` and the artifact
+            name/type/description.
+    """
 
     # Derive the base name of the file from the URL
     basename = pathlib.Path(args.file_url).name.split("?")[0].split("#")[0]

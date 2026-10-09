@@ -1,4 +1,12 @@
 #!/usr/bin/env python
+"""Train a Random Forest genre classifier inside a preprocessing pipeline.
+
+Downloads the training split from W&B, builds a sklearn pipeline that
+handles numerical, categorical, and text features, splits off a validation
+set, trains a RandomForestClassifier, scores it with macro ROC AUC (one-vs-rest),
+optionally exports the fitted pipeline to MLflow, and logs feature-importance
+and confusion-matrix plots to W&B.
+"""
 import argparse
 import itertools
 import logging
@@ -13,7 +21,7 @@ from mlflow.models import infer_signature
 from sklearn.compose import ColumnTransformer
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics import roc_auc_score, plot_confusion_matrix
+from sklearn.metrics import roc_auc_score, ConfusionMatrixDisplay
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import OrdinalEncoder, StandardScaler, FunctionTransformer
 import matplotlib.pyplot as plt
@@ -26,6 +34,17 @@ logger = logging.getLogger()
 
 
 def go(args):
+    """Train, validate, and optionally export the Random Forest genre model.
+
+    Pulls the training artifact from W&B, carves a validation split out of
+    it, fits the preprocessing + RandomForest pipeline from
+    :func:`get_training_inference_pipeline`, reports macro one-vs-rest ROC
+    AUC on validation, exports the model when requested, and logs a
+    feature-importance bar chart and a normalized confusion matrix.
+
+    Args:
+        args: Parsed CLI arguments (see ``__main__`` for the full list).
+    """
 
     run = wandb.init(job_type="train")
 
@@ -72,7 +91,7 @@ def go(args):
     fig_feat_imp = plot_feature_importance(pipe)
 
     fig_cm, sub_cm = plt.subplots(figsize=(10, 10))
-    plot_confusion_matrix(
+    ConfusionMatrixDisplay.from_estimator(
         pipe,
         X_val[used_columns],
         y_val,
@@ -92,8 +111,17 @@ def go(args):
 
 
 def export_model(run, pipe, used_columns, X_val, val_pred, export_artifact):
+    """Export the fitted pipeline as an MLflow model and log it to W&B.
 
-    # Infer the signature of the model
+    Args:
+        run: The active W&B run used to log the artifact.
+        pipe: The fitted sklearn pipeline to export.
+        used_columns: Feature columns the pipeline was trained on, used to
+            infer the model signature.
+        X_val: Validation features (a couple of rows double as input example).
+        val_pred: Validation predictions used for the signature output.
+        export_artifact: Name for the W&B artifact holding the exported model.
+    """
 
     # Get the columns that we are really using from the pipeline
     signature = infer_signature(X_val[used_columns], val_pred)
@@ -125,8 +153,20 @@ def export_model(run, pipe, used_columns, X_val, val_pred, export_artifact):
 
 
 def plot_feature_importance(pipe):
+    """Bar chart of per-feature importance for the fitted pipeline.
 
-    # We collect the feature importance for all non-nlp features first
+    Takes the importances of the numerical and categorical features as-is and
+    collapses the TF-IDF text dimensions into a single "title + song_name"
+    bar by summing them, so the text signal is comparable with the tabular
+    features at a glance.
+
+    Args:
+        pipe: The fitted pipeline (expects "preprocessor" and "classifier"
+            steps).
+
+    Returns:
+        The matplotlib figure with the sorted importance bars.
+    """
     feat_names = np.array(
         pipe["preprocessor"].transformers[0][-1]
         + pipe["preprocessor"].transformers[1][-1]
@@ -147,8 +187,24 @@ def plot_feature_importance(pipe):
 
 
 def get_training_inference_pipeline(args):
+    """Build the preprocessing + RandomForest pipeline from the YAML config.
 
-    # Get the configuration for the pipeline
+    Assembles three preprocessing tracks in a ColumnTransformer:
+    median-imputed + standardized numerical features, constant-imputed +
+    ordinal-encoded categorical features, and a TF-IDF text track (with a
+    reshape so SimpleImputer's 2-D output feeds TfidfVectorizer's 1-D
+    input). A RandomForestClassifier built from the same config is appended,
+    so the returned pipeline is used for both training and inference.
+
+    Args:
+        args: Parsed CLI arguments; ``args.model_config`` is the path to the
+            YAML file with the ``random_forest``, ``tfidf``, and ``features``
+            sections.
+
+    Returns:
+        Tuple of (pipeline, used_columns), where used_columns lists the raw
+        dataframe columns the pipeline consumes.
+    """
     with open(args.model_config) as fp:
         model_config = yaml.safe_load(fp)
     # Add it to the W&B configuration so the values for the hyperparams
